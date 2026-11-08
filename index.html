@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中学校 生徒会公式ポータル</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts (Inter & Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f4f6f8',
+                            100: '#e5e9f0',
+                            500: '#0066cc', // Apple blue classic
+                            600: '#0052a3',
+                            900: '#1d1d1f', // Apple dark gray
+                        },
+                        appleGray: {
+                            bg: '#f5f5f7',
+                            card: '#ffffff',
+                            text: '#1d1d1f',
+                            subtext: '#86868b',
+                            border: '#e5e5ea'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+            font-family: 'Inter', 'Noto Sans JP', -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glassmorphism subtle */
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d1d6;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a6;
+        }
+
+        /* Hide element dynamically */
+        .hidden-tab {
+            display: none !important;
+        }
+
+        /* Apple style focus and transitions */
+        .apple-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 0 1px rgba(0,0,0,0.08);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .apple-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.12);
+        }
+
+        .badge-status-受付 { background-color: #e5e5ea; color: #48484a; }
+        .badge-status-検討中 { background-color: #e0f2fe; color: #0369a1; }
+        .badge-status-学校へ提出 { background-color: #fef3c7; color: #b45309; }
+        .badge-status-対応中 { background-color: #fae8ff; color: #86198f; }
+        .badge-status-実現 { background-color: #dcfce7; color: #15803d; }
+        .badge-status-見送り { background-color: #ffe4e6; color: #be123c; }
+
+        /* Animation for notifications */
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-down {
+            animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-16">
+
+    <!-- Demo Role Switcher Bar (Fixed Top) -->
+    <div class="bg-gray-900 text-white text-xs px-4 py-2 flex flex-wrap justify-between items-center z-50 shadow-md">
+        <div class="flex items-center space-x-2">
+            <i class="ph-bold ph-shield-check text-blue-400 text-base"></i>
+            <span class="font-medium">デモ表示モード (現在の権限):</span>
+            <span id="currentRoleBadge" class="bg-blue-600 px-2.5 py-0.5 rounded-full text-white font-semibold">一般生徒</span>
+        </div>
+        <div class="flex items-center space-x-3 mt-1 sm:mt-0">
+            <span class="text-gray-400">切り替え:</span>
+            <button onclick="setRole('student')" class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 transition">一般生徒</button>
+            <button onclick="setRole('officer')" class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 transition">生徒会役員</button>
+            <button onclick="setRole('teacher')" class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 transition">教員管理者</button>
+        </div>
+    </div>
+
+    <!-- Security Note Banner -->
+    <div class="bg-blue-50 border-b border-blue-100 text-blue-900 text-xs py-1.5 px-4 text-center flex items-center justify-center space-x-2">
+        <i class="ph-bold ph-lock"></i>
+        <span>これは動作検証用プロトタイプです。入力された個人情報は外部に送信・保存されません。</span>
+    </div>
+
+    <!-- Main Navigation Header -->
+    <header class="sticky top-0 z-40 glass-nav border-b border-appleGray-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Site Logo -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('home')">
+                    <div class="w-9 h-9 bg-brand-900 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-sm">
+                        <i class="ph-bold ph-student"></i>
+                    </div>
+                    <div>
+                        <span class="text-base font-bold tracking-tight text-brand-900 block leading-tight">西雲中学校 生徒会</span>
+                        <span class="text-[10px] text-appleGray-subtext font-medium tracking-wider uppercase">Official Portal</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex space-x-1">
+                    <button onclick="switchTab('home')" id="nav-home" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-brand-900 bg-black/5">ホーム</button>
+                    <button onclick="switchTab('news')" id="nav-news" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">ニュース</button>
+                    <button onclick="switchTab('events')" id="nav-events" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">行事・企画</button>
+                    <button onclick="switchTab('progress')" id="nav-progress" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">活動進捗</button>
+                    <button onclick="switchTab('petitions')" id="nav-petitions" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">生徒提案</button>
+                    <button onclick="switchTab('feedback')" id="nav-feedback" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">意見箱</button>
+                    <button onclick="switchTab('rules')" id="nav-rules" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-appleGray-subtext hover:text-brand-900">校則案内</button>
+                    <button onclick="switchTab('admin')" id="nav-admin" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-medium transition text-brand-500 hover:bg-brand-50 hidden">
+                        <i class="ph-bold ph-gear inline mr-1"></i>管理画面
+                    </button>
+                </nav>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button onclick="toggleMobileMenu()" class="p-2 rounded-lg text-appleGray-subtext hover:text-brand-900 hover:bg-black/5">
+                        <i id="mobileMenuIcon" class="ph-bold ph-list text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu Dropdown -->
+        <div id="mobileMenu" class="hidden md:hidden border-t border-appleGray-border bg-white/95 px-4 pt-2 pb-4 space-y-1">
+            <button onclick="switchTab('home')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">ホーム</button>
+            <button onclick="switchTab('news')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">ニュース</button>
+            <button onclick="switchTab('events')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">行事・企画</button>
+            <button onclick="switchTab('progress')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">活動進捗</button>
+            <button onclick="switchTab('petitions')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">生徒提案・署名</button>
+            <button onclick="switchTab('feedback')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">意見箱</button>
+            <button onclick="switchTab('rules')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-900">校則データベース</button>
+            <button onclick="switchTab('admin')" id="mobile-nav-admin" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-brand-500 bg-brand-50 hidden">
+                <i class="ph-bold ph-gear inline mr-1"></i>管理画面
+            </button>
+        </div>
+    </header>
+
+    <!-- Global Toast / Alert Notification Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+        <!-- ================= PAGE 1: HOME ================= -->
+        <section id="tab-home" class="tab-content">
+            <!-- Hero Section -->
+            <div class="apple-card p-8 md:p-12 mb-8 bg-gradient-to-br from-white via-white to-slate-50 text-center relative overflow-hidden border border-appleGray-border">
+                <span class="inline-block px-3 py-1 bg-brand-50 text-brand-500 rounded-full text-xs font-semibold tracking-wide uppercase mb-3">公式ポータルサイト</span>
+                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-brand-900 mb-4">
+                    声をかたちに、学校を動かす。
+                </h1>
+                <p class="text-appleGray-subtext max-w-2xl mx-auto text-base md:text-lg mb-8 leading-relaxed font-normal">
+                    西雲中学校生徒会の活動状況をオープンにし、全校生徒の提案や意見を学校改善へとつなげるデジタルプラットフォームです。
+                </p>
+                
+                <!-- Quick Navigation Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                    <button onclick="switchTab('progress')" class="p-4 rounded-xl border border-appleGray-border bg-white hover:border-brand-500 transition text-left group">
+                        <i class="ph-bold ph-chart-line-up text-2xl text-brand-500 mb-2 block group-hover:scale-110 transition-transform"></i>
+                        <span class="font-bold text-sm block text-brand-900">活動進捗を見る</span>
+                        <span class="text-xs text-appleGray-subtext">要望の現在地を追跡</span>
+                    </button>
+                    <button onclick="switchTab('petitions')" class="p-4 rounded-xl border border-appleGray-border bg-white hover:border-brand-500 transition text-left group">
+                        <i class="ph-bold ph-pencil-line text-2xl text-emerald-500 mb-2 block group-hover:scale-110 transition-transform"></i>
+                        <span class="font-bold text-sm block text-brand-900">提案・賛同する</span>
+                        <span class="text-xs text-appleGray-subtext">みんなでつくる改善案</span>
+                    </button>
+                    <button onclick="switchTab('feedback')" class="p-4 rounded-xl border border-appleGray-border bg-white hover:border-brand-500 transition text-left group">
+                        <i class="ph-bold ph-chat-circle-dots text-2xl text-purple-500 mb-2 block group-hover:scale-110 transition-transform"></i>
+                        <span class="font-bold text-sm block text-brand-900">意見箱に届ける</span>
+                        <span class="text-xs text-appleGray-subtext">匿名で安心投稿</span>
+                    </button>
+                    <button onclick="switchTab('rules')" class="p-4 rounded-xl border border-appleGray-border bg-white hover:border-brand-500 transition text-left group">
+                        <i class="ph-bold ph-book-open text-2xl text-amber-500 mb-2 block group-hover:scale-110 transition-transform"></i>
+                        <span class="font-bold text-sm block text-brand-900">校則を確認する</span>
+                        <span class="text-xs text-appleGray-subtext">カテゴリー別検索</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid: Announcement & Featured Proposals -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+
+                <!-- Left Column (2/3): Important Announcements & Latest News -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold tracking-tight text-brand-900 flex items-center">
+                            <i class="ph-bold ph-megaphone text-brand-500 mr-2"></i>最新のお知らせ・重要報告
+                        </h2>
+                        <button onclick="switchTab('news')" class="text-xs text-brand-500 font-semibold hover:underline">すべて表示 &rarr;</button>
+                    </div>
+
+                    <div id="home-news-container" class="space-y-4">
+                        <!-- Dynamic Home News Content -->
+                    </div>
+                </div>
+
+                <!-- Right Column (1/3): Active Progress Highlights -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold tracking-tight text-brand-900 flex items-center">
+                            <i class="ph-bold ph-arrows-clockwise text-brand-500 mr-2"></i>注目の改善進捗
+                        </h2>
+                        <button onclick="switchTab('progress')" class="text-xs text-brand-500 font-semibold hover:underline">すべて表示 &rarr;</button>
+                    </div>
+
+                    <div id="home-progress-container" class="space-y-4">
+                        <!-- Dynamic Progress Cards -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 2: NEWSROOM ================= -->
+        <section id="tab-news" class="tab-content hidden-tab">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">NEWSROOM</h1>
+                    <p class="text-appleGray-subtext text-sm mt-1">生徒会の公式発表・活動報告・お知らせ一覧</p>
+                </div>
+                <!-- Search & Category Filter -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative">
+                        <i class="ph-bold ph-magnifying-glass absolute left-3 top-2.5 text-appleGray-subtext"></i>
+                        <input type="text" id="newsSearchInput" oninput="renderNews()" placeholder="ニュースを検索..." class="pl-9 pr-4 py-2 bg-white border border-appleGray-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 w-48 sm:w-64">
+                    </div>
+                    <select id="newsCategoryFilter" onchange="renderNews()" class="bg-white border border-appleGray-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <option value="all">すべてのカテゴリ</option>
+                        <option value="重要">重要</option>
+                        <option value="お知らせ">お知らせ</option>
+                        <option value="活動報告">活動報告</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Pinned & Regular Articles Grid -->
+            <div id="news-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 3: EVENTS ================= -->
+        <section id="tab-events" class="tab-content hidden-tab">
+            <div class="mb-8">
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">EVENTS</h1>
+                <p class="text-appleGray-subtext text-sm mt-1">学校行事・生徒会主催企画のスケジュール案内</p>
+            </div>
+
+            <div id="events-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 4: PROGRESS ================= -->
+        <section id="tab-progress" class="tab-content hidden-tab">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">PROGRESS</h1>
+                    <p class="text-appleGray-subtext text-sm mt-1">生徒の意見・提案が学校改善へつながる進捗状況の可視化</p>
+                </div>
+
+                <!-- Status Filter Pills -->
+                <div class="flex flex-wrap gap-1.5" id="progressStatusFilters">
+                    <button onclick="filterProgressStatus('all')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-brand-900 text-white" data-status="all">すべて</button>
+                    <button onclick="filterProgressStatus('受付')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="受付">受付</button>
+                    <button onclick="filterProgressStatus('検討中')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="検討中">検討中</button>
+                    <button onclick="filterProgressStatus('学校へ提出')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="学校へ提出">学校へ提出</button>
+                    <button onclick="filterProgressStatus('対応中')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="対応中">対応中</button>
+                    <button onclick="filterProgressStatus('実現')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="実現">実現</button>
+                    <button onclick="filterProgressStatus('見送り')" class="progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50" data-status="見送り">見送り</button>
+                </div>
+            </div>
+
+            <!-- Progress Cards List -->
+            <div id="progress-list" class="space-y-6">
+                <!-- Dynamic Progress Items -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 5: PETITIONS ================= -->
+        <section id="tab-petitions" class="tab-content hidden-tab">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">PETITIONS</h1>
+                    <p class="text-appleGray-subtext text-sm mt-1">生徒提案・署名キャンペーン（賛同が集まると生徒会で正式検討）</p>
+                </div>
+                <button onclick="openNewPetitionModal()" class="inline-flex items-center space-x-2 bg-brand-500 hover:bg-brand-600 text-white font-medium text-sm px-4 py-2.5 rounded-xl transition shadow-sm">
+                    <i class="ph-bold ph-plus text-base"></i>
+                    <span>新しい提案を作成</span>
+                </button>
+            </div>
+
+            <!-- Petition Threshold Note -->
+            <div class="apple-card p-4 mb-6 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="ph-bold ph-info text-yellow-400 text-xl"></i>
+                    <p class="text-xs sm:text-sm">
+                        <strong class="font-bold">署名の仕組み:</strong> 100筆の賛同を集めた提案は、生徒会役員会で議題として正式採択され、学校への提出が検討されます。
+                    </p>
+                </div>
+            </div>
+
+            <!-- Petitions Grid -->
+            <div id="petitions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 6: FEEDBACK ================= -->
+        <section id="tab-feedback" class="tab-content hidden-tab">
+            <div class="max-w-2xl mx-auto">
+                <div class="mb-8 text-center">
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">FEEDBACK</h1>
+                    <p class="text-appleGray-subtext text-sm mt-1">生徒会への意見・アイデア・改善要望の投稿箱</p>
+                </div>
+
+                <div class="apple-card p-6 md:p-8 border border-appleGray-border">
+                    <!-- Privacy Guarantee Banner -->
+                    <div class="mb-6 p-4 rounded-xl bg-gray-50 border border-appleGray-border flex items-start space-x-3">
+                        <i class="ph-bold ph-shield-check text-emerald-600 text-xl flex-shrink-0 mt-0.5"></i>
+                        <div class="text-xs text-appleGray-subtext space-y-1">
+                            <p class="font-bold text-brand-900">安心のプライバシー保護体制</p>
+                            <p>送信された意見は生徒会役員および担当教員のみが閲覧します。投稿者の個人情報は一般サイト上で公開されることは一切ありません。</p>
+                        </div>
+                    </div>
+
+                    <form id="feedbackForm" onsubmit="handleFeedbackSubmit(event)" class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-appleGray-subtext mb-2">カテゴリ選択 <span class="text-red-500">*</span></label>
+                            <select id="fbCategory" required class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                                <option value="" disabled selected>該当する項目を選択してください</option>
+                                <option value="校則・決まり">校則・決まりについて</option>
+                                <option value="施設・設備">学校の施設・設備について</option>
+                                <option value="行事・イベント">学校行事・イベントについて</option>
+                                <option value="生徒会活動">生徒会活動全般への要望</option>
+                                <option value="その他">その他</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-appleGray-subtext mb-2">意見の件名 <span class="text-red-500">*</span></label>
+                            <input type="text" id="fbSubject" required placeholder="例：図書室の開館時間を放課後17時までに延ばしてほしい" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-appleGray-subtext mb-2">具体的内容 <span class="text-red-500">*</span></label>
+                            <textarea id="fbContent" rows="5" required placeholder="現状の困りごとや、具体的になぜそうしてほしいかの理由を具体的に書いてください。" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 resize-none"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-appleGray-subtext mb-2">学年・クラス（任意）</label>
+                            <input type="text" id="fbGrade" placeholder="例：3年2組（匿名希望の場合は空欄で可）" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        </div>
+
+                        <button type="submit" class="w-full bg-brand-900 hover:bg-black text-white font-medium py-3.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2">
+                            <i class="ph-bold ph-paper-plane-right"></i>
+                            <span>意見を送信する</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 7: SCHOOL RULES ================= -->
+        <section id="tab-rules" class="tab-content hidden-tab">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">SCHOOL RULES</h1>
+                    <p class="text-appleGray-subtext text-sm mt-1">校内生活の決まり・校則データベース</p>
+                </div>
+                <!-- Search Box -->
+                <div class="relative">
+                    <i class="ph-bold ph-magnifying-glass absolute left-3 top-2.5 text-appleGray-subtext"></i>
+                    <input type="text" id="ruleSearchInput" oninput="renderRules()" placeholder="キーワードで校則を検索..." class="pl-9 pr-4 py-2 bg-white border border-appleGray-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 w-64">
+                </div>
+            </div>
+
+            <!-- Rules Categories Accordion Container -->
+            <div id="rules-container" class="space-y-4">
+                <!-- Dynamically generated accordion -->
+            </div>
+        </section>
+
+
+        <!-- ================= PAGE 8: ADMIN DASHBOARD ================= -->
+        <section id="tab-admin" class="tab-content hidden-tab">
+            <div class="mb-8 flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-brand-900">ADMIN DASHBOARD</h1>
+                        <span id="adminRoleTag" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">生徒会役員用</span>
+                    </div>
+                    <p class="text-appleGray-subtext text-sm mt-1">記事、イベント、進捗状況の管理および教員承認フロー</p>
+                </div>
+            </div>
+
+            <!-- Admin Nav Sub-tabs -->
+            <div class="flex border-b border-appleGray-border mb-6 space-x-6 overflow-x-auto">
+                <button onclick="switchAdminSubTab('manage-progress')" id="admin-subnav-progress" class="pb-3 text-sm font-bold border-b-2 border-brand-500 text-brand-500 whitespace-nowrap">進捗管理</button>
+                <button onclick="switchAdminSubTab('manage-petitions')" id="admin-subnav-petitions" class="pb-3 text-sm font-bold text-appleGray-subtext hover:text-brand-900 whitespace-nowrap">提案・署名承認</button>
+                <button onclick="switchAdminSubTab('manage-news')" id="admin-subnav-news" class="pb-3 text-sm font-bold text-appleGray-subtext hover:text-brand-900 whitespace-nowrap">ニュース管理</button>
+                <button onclick="switchAdminSubTab('manage-feedback')" id="admin-subnav-feedback" class="pb-3 text-sm font-bold text-appleGray-subtext hover:text-brand-900 whitespace-nowrap">受領した意見箱</button>
+                <button onclick="switchAdminSubTab('manage-logs')" id="admin-subnav-logs" class="pb-3 text-sm font-bold text-appleGray-subtext hover:text-brand-900 whitespace-nowrap">操作ログ履歴</button>
+            </div>
+
+            <!-- Admin SubTab 1: Progress Manager -->
+            <div id="admin-tab-manage-progress" class="admin-subtab space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-lg text-brand-900">改善案件のステータス更新</h3>
+                    <button onclick="openNewProgressModal()" class="px-3.5 py-2 bg-brand-900 text-white text-xs font-medium rounded-xl hover:bg-black transition">+ 新規改善案件の登録</button>
+                </div>
+                <div class="apple-card overflow-hidden border border-appleGray-border">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 border-b border-appleGray-border text-xs text-appleGray-subtext uppercase">
+                                <tr>
+                                    <th class="px-4 py-3">ID / 提案日</th>
+                                    <th class="px-4 py-3">案件名</th>
+                                    <th class="px-4 py-3">ステータス変更</th>
+                                    <th class="px-4 py-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminProgressTable" class="divide-y divide-appleGray-border">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin SubTab 2: Petitions & Teacher Approval -->
+            <div id="admin-tab-manage-petitions" class="admin-subtab hidden-tab space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-lg text-brand-900">生徒提案の承認・審査</h3>
+                    <span class="text-xs text-appleGray-subtext">※教員管理者は正式「承認」アクションを行えます</span>
+                </div>
+                <div class="apple-card overflow-hidden border border-appleGray-border">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 border-b border-appleGray-border text-xs text-appleGray-subtext uppercase">
+                                <tr>
+                                    <th class="px-4 py-3">提案名</th>
+                                    <th class="px-4 py-3">賛同数</th>
+                                    <th class="px-4 py-3">現在の承認状態</th>
+                                    <th class="px-4 py-3 text-right">アクション</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminPetitionsTable" class="divide-y divide-appleGray-border">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin SubTab 3: News Manager -->
+            <div id="admin-tab-manage-news" class="admin-subtab hidden-tab space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-lg text-brand-900">公式ニュース作成・管理</h3>
+                    <button onclick="openNewNewsModal()" class="px-3.5 py-2 bg-brand-900 text-white text-xs font-medium rounded-xl hover:bg-black transition">+ 記事新規投稿</button>
+                </div>
+                <div id="adminNewsList" class="space-y-3">
+                    <!-- Dynamic admin news items -->
+                </div>
+            </div>
+
+            <!-- Admin SubTab 4: Feedback List -->
+            <div id="admin-tab-manage-feedback" class="admin-subtab hidden-tab space-y-6">
+                <h3 class="font-bold text-lg text-brand-900">届いた意見一覧</h3>
+                <div id="adminFeedbackList" class="space-y-4">
+                    <!-- Dynamic Feedback Messages -->
+                </div>
+            </div>
+
+            <!-- Admin SubTab 5: System Logs -->
+            <div id="admin-tab-manage-logs" class="admin-subtab hidden-tab space-y-6">
+                <h3 class="font-bold text-lg text-brand-900">管理操作アクティビティログ</h3>
+                <div class="apple-card p-4 border border-appleGray-border bg-slate-900 text-emerald-400 font-mono text-xs max-h-96 overflow-y-auto space-y-2" id="adminLogsContainer">
+                    <!-- Dynamic console-style logs -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-appleGray-border mt-16 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-appleGray-subtext space-y-2">
+            <p>&copy; 2026 西雲中学校 生徒会執行部 (NishiKumo Junior High Student Council)</p>
+            <p>本システムは生徒の意見反映および生徒会活動の透明化を目的とした公式ポータルプロトタイプです。</p>
+        </div>
+    </footer>
+
+    <!-- MODAL CONTAINER (Shared for viewing news, posting petitions, modal edits) -->
+    <div id="modalOverlay" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div id="modalCard" class="apple-card max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 bg-white relative shadow-2xl animate-slide-down">
+            <!-- Dynamic Modal Header & Content -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 p-2 text-appleGray-subtext hover:text-brand-900 rounded-full hover:bg-gray-100">
+                <i class="ph-bold ph-x text-xl"></i>
+            </button>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        // App State & Data Store
+        let state = {
+            currentRole: 'student', // 'student' | 'officer' | 'teacher'
+            currentTab: 'home',
+            petitionsVoted: new Set(), // Voted petition IDs in this session
+            logs: [
+                { time: '2026-11-08 14:20', actor: '教員管理者', action: '提案「置き勉範囲の拡大」の学校提出を最終承認しました。' },
+                { time: '2026-11-07 10:15', actor: '生徒会役員', action: '新記事「文化祭フィードバックのまとめ」を公開しました。' }
+            ],
+            news: [
+                {
+                    id: 1,
+                    title: "【重要】冬服移行期間における防寒具着用ルール改訂のお知らせ",
+                    date: "2026-11-05",
+                    category: "重要",
+                    isPinned: true,
+                    content: "生徒会からの提案が学校職員会議で承認され、指定セーター以外の防寒着（黒・紺・灰の無地カーディガン等）の着用が実験的に許可されることになりました。登下校時および教室移動時に着用可能です。"
+                },
+                {
+                    id: 2,
+                    title: "球技大会の競技リクエスト集計結果発表",
+                    date: "2026-11-02",
+                    category: "活動報告",
+                    isPinned: false,
+                    content: "先週まで募集していた球技大会の種目について、全校アンケートの結果「ドッジボール」と「バレーボール」に決定しました。実行委員会でルールを調整中です。"
+                },
+                {
+                    id: 3,
+                    title: "図書室の放課後開館時間が30分延長されます",
+                    date: "2026-10-28",
+                    category: "お知らせ",
+                    isPinned: false,
+                    content: "定期テスト前の学習環境改善に向けた生徒要望を受け、図書委員会の協力のもとテスト前週の開館時間が17:30まで延長されることになりました。"
+                }
+            ],
+            events: [
+                {
+                    id: 1,
+                    title: "第2回 全校生徒総会・意見交換会",
+                    date: "2026-11-20 (木) 14:30〜",
+                    location: "体育館",
+                    description: "校則改訂に向けたアンケート結果の報告および意見交換会を行います。"
+                },
+                {
+                    id: 2,
+                    title: "校内クリーンアップボランティア",
+                    date: "2026-11-28 (土) 09:00〜",
+                    location: "中庭・学校周辺",
+                    description: "美化委員会と生徒会の合同企画。参加希望者は11/25までに各クラス役員へ。"
+                }
+            ],
+            progress: [
+                {
+                    id: 101,
+                    title: "教科書の「置き勉」許容範囲の拡大",
+                    date: "2026-10-10",
+                    status: "実現",
+                    summary: "置き勉ができる教科書・副教材のリストを更新し、ロッカーの鍵設置と合わせて全面解禁されました。",
+                    history: [
+                        "10/10 生徒提案により受付",
+                        "10/15 生徒会役員会で協議・要望書作成",
+                        "10/22 職員会議へ提出",
+                        "11/01 学校長承認・全校へ告知"
+                    ],
+                    reason: "カバンの重量化による健康への影響が考慮され、学校側の全面協力が得られました。"
+                },
+                {
+                    id: 102,
+                    title: "雨の日の体育館の昼休み開放",
+                    date: "2026-10-18",
+                    status: "対応中",
+                    summary: "雨天時に室内運動ができるよう、曜日ごとの学年割り当てルールを検討中。",
+                    history: [
+                        "10/18 意見箱への投稿多数により着手",
+                        "10/25 体育委員会と協議",
+                        "11/03 試行運用案を先生方と調整中"
+                    ],
+                    reason: ""
+                },
+                {
+                    id: 103,
+                    title: "自動販売機（スポーツドリンク）の校内設置",
+                    date: "2026-09-05",
+                    status: "見送り",
+                    summary: "校内への熱中症対策としての清涼飲料水自販機設置の要望。",
+                    history: [
+                        "09/05 署名達成により学校へ提出",
+                        "09/20 PTCA協議会にて審議"
+                    ],
+                    reason: "電気・施設管理費用およびゴミの分別処理上の課題が大きく、当面は各自の水筒持参で対応する決定となりました。"
+                }
+            ],
+            petitions: [
+                {
+                    id: 201,
+                    title: "図書室への最新学習漫画・英検参考書の拡充",
+                    author: "3年有志",
+                    date: "2026-11-01",
+                    votes: 112,
+                    threshold: 100,
+                    status: "検討中",
+                    description: "受験・資格学習の需要が高まっているため、図書室の予算配分を見直し自習用水準の書籍を増やしてほしい。"
+                },
+                {
+                    id: 202,
+                    title: "昼休み中の校内放送（リクエスト曲）の復活",
+                    author: "放送委員会・生徒有志",
+                    date: "2026-11-04",
+                    votes: 84,
+                    threshold: 100,
+                    status: "受付中",
+                    description: "マナーを守った曲のリクエスト受付フォームを開設し、昼休みにリラックスできるBGMを流してほしい。"
+                }
+            ],
+            feedbacks: [
+                {
+                    id: 301,
+                    category: "施設・設備",
+                    subject: "体育館の女子更衣室のフック増設",
+                    content: "部活動の着替えの際、荷物をかけるフックが足りず床に置くことになっています。数箇所増やしてもらえると助かります。",
+                    date: "2026-11-06",
+                    grade: "2年"
+                }
+            ],
+            rules: [
+                {
+                    category: "服装・身だしなみ",
+                    items: [
+                        { name: "制服の着用", detail: "登下校および校内では原則指定の制服を正しく着用する。季節に応じた移行期間を設ける。" },
+                        { name: "防寒具", detail: "登下校時のコート・セーター・マフラーは派手でないもの（黒・紺・グレー・茶等）を着用可。" }
+                    ]
+                },
+                {
+                    category: "持ち物・貴重品",
+                    items: [
+                        { name: "スマートフォン・電子機器", detail: "校内での使用は原則禁止。緊急連絡用として登校時に学級担任へ預けるかロッカーで保管する。" },
+                        { name: "学習不要物", detail: "ゲーム機、漫画本等の学習に関係のない持ち込みは禁止。" }
+                    ]
+                },
+                {
+                    category: "校内生活・利用基準",
+                    items: [
+                        { name: "校舎利用時間", detail: "最終下校時刻は夏季18:00、冬季17:30とする。特別な部活等を除く。" },
+                        { name: "置き勉（教科書保管）", detail: "ロッカー内への教科書等の保管は指定された範囲内で認められる。" }
+                    ]
+                }
+            ]
+        };
+
+        // --- Core Navigation & Role Handling ---
+
+        function setRole(role) {
+            state.currentRole = role;
+            const badge = document.getElementById('currentRoleBadge');
+            const adminNav = document.getElementById('nav-admin');
+            const mobileAdminNav = document.getElementById('mobile-nav-admin');
+            const adminRoleTag = document.getElementById('adminRoleTag');
+
+            if (role === 'student') {
+                badge.innerText = '一般生徒';
+                badge.className = 'bg-blue-600 px-2.5 py-0.5 rounded-full text-white font-semibold';
+                adminNav.classList.add('hidden');
+                mobileAdminNav.classList.add('hidden');
+                if (state.currentTab === 'admin') switchTab('home');
+            } else if (role === 'officer') {
+                badge.innerText = '生徒会役員';
+                badge.className = 'bg-purple-600 px-2.5 py-0.5 rounded-full text-white font-semibold';
+                adminNav.classList.remove('hidden');
+                mobileAdminNav.classList.remove('hidden');
+                if (adminRoleTag) adminRoleTag.innerText = '生徒会役員用';
+            } else if (role === 'teacher') {
+                badge.innerText = '教員管理者';
+                badge.className = 'bg-emerald-600 px-2.5 py-0.5 rounded-full text-white font-semibold';
+                adminNav.classList.remove('hidden');
+                mobileAdminNav.classList.remove('hidden');
+                if (adminRoleTag) adminRoleTag.innerText = '教員管理者モード';
+            }
+            renderAll();
+            showToast(`権限を「${badge.innerText}」に切替えました`);
+        }
+
+        function switchTab(tabId) {
+            state.currentTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden-tab'));
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden-tab');
+
+            // Update Navigation active state
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-brand-900', 'bg-black/5');
+                btn.classList.add('text-appleGray-subtext');
+            });
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('text-brand-900', 'bg-black/5');
+                activeBtn.classList.remove('text-appleGray-subtext');
+            }
+
+            // Close mobile menu if open
+            document.getElementById('mobileMenu').classList.add('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            renderAll();
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'bg-brand-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 animate-slide-down pointer-events-auto border border-white/10';
+            toast.innerHTML = `<i class="ph-bold ph-check-circle text-emerald-400 text-base"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function addLog(action) {
+            const actor = state.currentRole === 'teacher' ? '教員管理者' : (state.currentRole === 'officer' ? '生徒会役員' : '一般生徒');
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            state.logs.unshift({ time: timeStr, actor, action });
+            renderAdminLogs();
+        }
+
+        // --- Render Functions ---
+
+        function renderHome() {
+            // News Highlight
+            const homeNews = document.getElementById('home-news-container');
+            const featuredNews = state.news.slice(0, 2);
+            homeNews.innerHTML = featuredNews.map(item => `
+                <div onclick="openNewsDetail(${item.id})" class="apple-card p-5 border border-appleGray-border cursor-pointer hover:border-brand-500/50">
+                    <div class="flex items-center space-x-2 mb-2">
+                        ${item.isPinned ? `<span class="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center"><i class="ph-bold ph-push-pin mr-1"></i>固定</span>` : ''}
+                        <span class="bg-gray-100 text-gray-700 text-[10px] font-medium px-2 py-0.5 rounded-full">${item.category}</span>
+                        <span class="text-xs text-appleGray-subtext">${item.date}</span>
+                    </div>
+                    <h3 class="font-bold text-base text-brand-900 mb-1 hover:text-brand-500 transition">${item.title}</h3>
+                    <p class="text-xs text-appleGray-subtext line-clamp-2">${item.content}</p>
+                </div>
+            `).join('');
+
+            // Progress Highlight
+            const homeProgress = document.getElementById('home-progress-container');
+            const featuredProgress = state.progress.slice(0, 3);
+            homeProgress.innerHTML = featuredProgress.map(item => `
+                <div class="apple-card p-4 border border-appleGray-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold badge-status-${item.status}">${item.status}</span>
+                        <span class="text-[10px] text-appleGray-subtext">${item.date}</span>
+                    </div>
+                    <h4 class="font-bold text-sm text-brand-900 mb-1">${item.title}</h4>
+                    <p class="text-xs text-appleGray-subtext line-clamp-2">${item.summary}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderNews() {
+            const search = document.getElementById('newsSearchInput')?.value.toLowerCase() || '';
+            const category = document.getElementById('newsCategoryFilter')?.value || 'all';
+
+            const filtered = state.news.filter(n => {
+                const matchSearch = n.title.toLowerCase().includes(search) || n.content.toLowerCase().includes(search);
+                const matchCat = category === 'all' || n.category === category;
+                return matchSearch && matchCat;
+            });
+
+            const container = document.getElementById('news-list');
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-appleGray-subtext text-sm">該当する記事が見つかりませんでした。</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => `
+                <div onclick="openNewsDetail(${item.id})" class="apple-card p-6 border border-appleGray-border flex flex-col justify-between cursor-pointer hover:border-brand-500/50">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="bg-gray-100 text-brand-900 text-xs font-semibold px-2.5 py-0.5 rounded-full">${item.category}</span>
+                            <span class="text-xs text-appleGray-subtext">${item.date}</span>
+                        </div>
+                        <h3 class="font-bold text-base text-brand-900 mb-2 leading-snug">${item.title}</h3>
+                        <p class="text-xs text-appleGray-subtext leading-relaxed line-clamp-3">${item.content}</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-brand-500 font-medium">
+                        <span>詳しく読む</span>
+                        <i class="ph-bold ph-arrow-right"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openNewsDetail(id) {
+            const item = state.news.find(n => n.id === id);
+            if (!item) return;
+
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="bg-gray-100 text-brand-900 text-xs font-semibold px-2.5 py-0.5 rounded-full">${item.category}</span>
+                        <span class="text-xs text-appleGray-subtext">${item.date}</span>
+                    </div>
+                    <h2 class="text-xl font-bold text-brand-900 leading-snug">${item.title}</h2>
+                    <div class="border-t border-appleGray-border pt-4 text-sm text-appleGray-text leading-relaxed whitespace-pre-line">
+                        ${item.content}
+                    </div>
+                    <div class="pt-4 flex justify-end">
+                        <button onclick="closeModal()" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-brand-900 text-xs font-bold rounded-xl transition">閉じる</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('events-list');
+            container.innerHTML = state.events.map(ev => `
+                <div class="apple-card p-6 border border-appleGray-border flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2 text-xs text-brand-500 font-semibold mb-2">
+                            <i class="ph-bold ph-calendar-blank"></i>
+                            <span>${ev.date}</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-brand-900 mb-2">${ev.title}</h3>
+                        <p class="text-xs text-appleGray-subtext mb-4 leading-relaxed">${ev.description}</p>
+                    </div>
+                    <div class="flex items-center text-xs text-appleGray-subtext pt-3 border-t border-gray-100">
+                        <i class="ph-bold ph-map-pin mr-1.5 text-brand-900"></i>
+                        <span>場所: ${ev.location}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        let currentProgressFilter = 'all';
+        function filterProgressStatus(status) {
+            currentProgressFilter = status;
+            document.querySelectorAll('.progress-filter-btn').forEach(btn => {
+                if (btn.dataset.status === status) {
+                    btn.className = 'progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-brand-900 text-white';
+                } else {
+                    btn.className = 'progress-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-white text-appleGray-subtext border border-appleGray-border hover:bg-gray-50';
+                }
+            });
+            renderProgress();
+        }
+
+        function renderProgress() {
+            const container = document.getElementById('progress-list');
+            const filtered = state.progress.filter(p => currentProgressFilter === 'all' || p.status === currentProgressFilter);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-appleGray-subtext text-sm">該当する案件はありません。</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => `
+                <div class="apple-card p-6 border border-appleGray-border space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-appleGray-border pb-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold badge-status-${item.status}">${item.status}</span>
+                            <h3 class="font-bold text-base text-brand-900">${item.title}</h3>
+                        </div>
+                        <span class="text-xs text-appleGray-subtext">提案受付日: ${item.date}</span>
+                    </div>
+
+                    <p class="text-xs sm:text-sm text-appleGray-text leading-relaxed">${item.summary}</p>
+
+                    <!-- Timeline -->
+                    <div class="bg-gray-50 p-4 rounded-xl space-y-2">
+                        <span class="text-[11px] font-bold text-appleGray-subtext uppercase tracking-wider block">これまでの経過・対応履歴</span>
+                        <ul class="space-y-1.5">
+                            ${item.history.map(h => `
+                                <li class="text-xs text-appleGray-text flex items-start">
+                                    <i class="ph-bold ph-check text-brand-500 mr-2 mt-0.5"></i>
+                                    <span>${h}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    ${item.reason ? `
+                        <div class="p-3 bg-red-50/60 rounded-xl border border-red-100 text-xs text-red-900">
+                            <strong class="font-bold block mb-0.5">【結果の理由・学校回答】</strong>
+                            ${item.reason}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderPetitions() {
+            const container = document.getElementById('petitions-list');
+            container.innerHTML = state.petitions.map(p => {
+                const isVoted = state.petitionsVoted.has(p.id);
+                const percent = Math.min(100, Math.round((p.votes / p.threshold) * 100));
+
+                return `
+                    <div class="apple-card p-6 border border-appleGray-border flex flex-col justify-between">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-start">
+                                <span class="bg-emerald-50 text-emerald-700 font-bold text-[10px] px-2.5 py-0.5 rounded-full">${p.status}</span>
+                                <span class="text-xs text-appleGray-subtext">発案: ${p.author}</span>
+                            </div>
+                            <h3 class="font-bold text-base text-brand-900">${p.title}</h3>
+                            <p class="text-xs text-appleGray-subtext leading-relaxed">${p.description}</p>
+                        </div>
+
+                        <div class="mt-6 pt-4 border-t border-appleGray-border space-y-3">
+                            <!-- Progress bar -->
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-bold text-brand-900">${p.votes} 筆の賛同</span>
+                                    <span class="text-appleGray-subtext">目標 ${p.threshold} 筆 (${percent}%)</span>
+                                </div>
+                                <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-brand-500 h-full rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                                </div>
+                            </div>
+
+                            <button onclick="votePetition(${p.id})" ${isVoted ? 'disabled' : ''} class="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 ${isVoted ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white shadow-sm'}">
+                                <i class="ph-bold ${isVoted ? 'ph-check-circle' : 'ph-thumbs-up'} text-base"></i>
+                                <span>${isVoted ? '賛同済み' : 'この提案に賛同する（署名）'}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function votePetition(id) {
+            if (state.petitionsVoted.has(id)) return;
+
+            const p = state.petitions.find(item => item.id === id);
+            if (p) {
+                p.votes += 1;
+                if (p.votes >= p.threshold && p.status === '受付中') {
+                    p.status = '検討中（到達）';
+                    addLog(`提案「${p.title}」が署名目標（${p.threshold}筆）を達成しました。`);
+                }
+                state.petitionsVoted.add(id);
+                renderPetitions();
+                showToast('提案に賛同しました！');
+            }
+        }
+
+        function openNewPetitionModal() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <h2 class="text-xl font-bold text-brand-900 mb-4">新しい改善提案を作成</h2>
+                <form onsubmit="handleCreatePetition(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">提案タイトル *</label>
+                        <input type="text" id="newPetTitle" required placeholder="例：図書室の自習スペース増設について" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">提案者名（有志名など） *</label>
+                        <input type="text" id="newPetAuthor" required placeholder="例：2年有志" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">詳細と実現理由 *</label>
+                        <textarea id="newPetDesc" rows="4" required placeholder="現状の課題と、この提案によって学校生活がどう良くなるかを詳しく記入してください。" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+                    </div>
+                    <div class="pt-2 flex justify-end space-x-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-100 text-xs font-bold rounded-xl">キャンセル</button>
+                        <button type="submit" class="px-5 py-2 bg-brand-900 text-white text-xs font-bold rounded-xl hover:bg-black transition">提案を公開する</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+
+        function handleCreatePetition(e) {
+            e.preventDefault();
+            const title = document.getElementById('newPetTitle').value;
+            const author = document.getElementById('newPetAuthor').value;
+            const desc = document.getElementById('newPetDesc').value;
+
+            const newPet = {
+                id: Date.now(),
+                title: title,
+                author: author,
+                date: new Date().toISOString().split('T')[0],
+                votes: 1,
+                threshold: 100,
+                status: "受付中",
+                description: desc
+            };
+
+            state.petitions.unshift(newPet);
+            state.petitionsVoted.add(newPet.id);
+            closeModal();
+            renderPetitions();
+            addLog(`生徒提案「${title}」が作成・一般公開されました。`);
+            showToast('新しい提案を作成しました');
+        }
+
+        function handleFeedbackSubmit(e) {
+            e.preventDefault();
+            const cat = document.getElementById('fbCategory').value;
+            const subj = document.getElementById('fbSubject').value;
+            const content = document.getElementById('fbContent').value;
+            const grade = document.getElementById('fbGrade').value || '匿名生徒';
+
+            state.feedbacks.unshift({
+                id: Date.now(),
+                category: cat,
+                subject: subj,
+                content: content,
+                date: new Date().toISOString().split('T')[0],
+                grade: grade
+            });
+
+            document.getElementById('feedbackForm').reset();
+            showToast('意見が送信されました。ご協力ありがとうございます。');
+            addLog(`新しい意見箱投稿を受領しました (カテゴリ: ${cat})`);
+        }
+
+        function renderRules() {
+            const search = document.getElementById('ruleSearchInput')?.value.toLowerCase() || '';
+            const container = document.getElementById('rules-container');
+
+            let html = '';
+            state.rules.forEach((catGroup, idx) => {
+                const matchedItems = catGroup.items.filter(item => item.name.toLowerCase().includes(search) || item.detail.toLowerCase().includes(search));
+
+                if (matchedItems.length > 0) {
+                    html += `
+                        <div class="apple-card overflow-hidden border border-appleGray-border">
+                            <div class="bg-gray-50 px-6 py-4 border-b border-appleGray-border flex items-center justify-between">
+                                <h3 class="font-bold text-base text-brand-900 flex items-center">
+                                    <i class="ph-bold ph-bookmark-simple mr-2 text-brand-500"></i>${catGroup.category}
+                                </h3>
+                                <span class="text-xs text-appleGray-subtext">${matchedItems.length}項目</span>
+                            </div>
+                            <div class="divide-y divide-appleGray-border">
+                                ${matchedItems.map(item => `
+                                    <div class="p-6">
+                                        <h4 class="font-bold text-sm text-brand-900 mb-1">${item.name}</h4>
+                                        <p class="text-xs text-appleGray-subtext leading-relaxed">${item.detail}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            container.innerHTML = html || `<div class="text-center py-12 text-appleGray-subtext text-sm">一致する校則項目は見つかりませんでした。</div>`;
+        }
+
+        // --- Admin Dashboard Logic ---
+
+        function switchAdminSubTab(subTabId) {
+            document.querySelectorAll('.admin-subtab').forEach(el => el.classList.add('hidden-tab'));
+            const target = document.getElementById(`admin-tab-${subTabId}`);
+            if (target) target.classList.remove('hidden-tab');
+
+            // Subnav styles
+            ['progress', 'petitions', 'news', 'feedback', 'logs'].forEach(key => {
+                const btn = document.getElementById(`admin-subnav-${key}`);
+                if (btn) {
+                    if (`manage-${key}` === subTabId) {
+                        btn.className = "pb-3 text-sm font-bold border-b-2 border-brand-500 text-brand-500 whitespace-nowrap";
+                    } else {
+                        btn.className = "pb-3 text-sm font-bold text-appleGray-subtext hover:text-brand-900 whitespace-nowrap";
+                    }
+                }
+            });
+        }
+
+        function renderAdminTable() {
+            // Admin Progress Table
+            const pTable = document.getElementById('adminProgressTable');
+            pTable.innerHTML = state.progress.map(p => `
+                <tr>
+                    <td class="px-4 py-3 text-xs text-appleGray-subtext">#${p.id}<br>${p.date}</td>
+                    <td class="px-4 py-3 font-bold text-brand-900 text-xs">${p.title}</td>
+                    <td class="px-4 py-3">
+                        <select onchange="updateProgressStatus(${p.id}, this.value)" class="bg-appleGray-bg border border-appleGray-border text-xs rounded-lg px-2 py-1 focus:outline-none">
+                            ${['受付', '検討中', '学校へ提出', '対応中', '実現', '見送り'].map(st => `
+                                <option value="${st}" ${p.status === st ? 'selected' : ''}>${st}</option>
+                            `).join('')}
+                        </select>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="deleteProgress(${p.id})" class="text-xs text-red-500 hover:underline">削除</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Admin Petitions Approval Table
+            const petTable = document.getElementById('adminPetitionsTable');
+            petTable.innerHTML = state.petitions.map(p => `
+                <tr>
+                    <td class="px-4 py-3 font-bold text-xs text-brand-900">${p.title}</td>
+                    <td class="px-4 py-3 text-xs">${p.votes} / ${p.threshold} 筆</td>
+                    <td class="px-4 py-3 text-xs">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${p.status.includes('承認') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${p.status}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right space-x-2">
+                        ${state.currentRole === 'teacher' ? `
+                            <button onclick="approvePetitionByTeacher(${p.id})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition">職員会議承認</button>
+                        ` : `
+                            <span class="text-[11px] text-appleGray-subtext">教員権限で承認可能</span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+
+            // Admin News List
+            const newsList = document.getElementById('adminNewsList');
+            newsList.innerHTML = state.news.map(n => `
+                <div class="apple-card p-4 border border-appleGray-border flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] text-appleGray-subtext mr-2">${n.date}</span>
+                        <span class="font-bold text-xs text-brand-900">${n.title}</span>
+                    </div>
+                    <button onclick="deleteNews(${n.id})" class="text-xs text-red-500 hover:underline">削除</button>
+                </div>
+            `).join('');
+
+            // Admin Feedback List
+            const fbList = document.getElementById('adminFeedbackList');
+            fbList.innerHTML = state.feedbacks.map(f => `
+                <div class="apple-card p-4 border border-appleGray-border space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold bg-gray-100 text-brand-900 px-2 py-0.5 rounded-full">${f.category}</span>
+                        <span class="text-appleGray-subtext">${f.date} (${f.grade})</span>
+                    </div>
+                    <h4 class="font-bold text-sm text-brand-900">${f.subject}</h4>
+                    <p class="text-xs text-appleGray-subtext leading-relaxed">${f.content}</p>
+                </div>
+            `).join('');
+
+            renderAdminLogs();
+        }
+
+        function updateProgressStatus(id, newStatus) {
+            const item = state.progress.find(p => p.id === id);
+            if (item) {
+                const old = item.status;
+                item.status = newStatus;
+                item.history.push(`${new Date().getMonth()+1}/${new Date().getDate()} ステータスが「${newStatus}」に更新されました`);
+                addLog(`案件「${item.title}」のステータスを ${old} ➔ ${newStatus} へ変更しました。`);
+                showToast('ステータスを更新しました');
+            }
+        }
+
+        function deleteProgress(id) {
+            state.progress = state.progress.filter(p => p.id !== id);
+            addLog(`改善案件 #${id} を削除しました。`);
+            renderAdminTable();
+            showToast('削除しました');
+        }
+
+        function approvePetitionByTeacher(id) {
+            const p = state.petitions.find(item => item.id === id);
+            if (p) {
+                p.status = '教員承認完了（提出予定）';
+                addLog(`教員管理者が提案「${p.title}」の正式承認を行いました。`);
+                renderAdminTable();
+                showToast('提案を最終承認しました');
+            }
+        }
+
+        function deleteNews(id) {
+            state.news = state.news.filter(n => n.id !== id);
+            addLog(`ニュース記事 #${id} を削除しました。`);
+            renderAdminTable();
+            showToast('ニュースを削除しました');
+        }
+
+        function openNewProgressModal() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <h2 class="text-xl font-bold text-brand-900 mb-4">新規改善案件の作成</h2>
+                <form onsubmit="handleCreateProgress(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">案件名 *</label>
+                        <input type="text" id="progTitle" required placeholder="例：体育館シューズ入れの配置見直し" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">概要 *</label>
+                        <textarea id="progSummary" rows="3" required placeholder="どのような要望か短く記述" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm focus:outline-none"></textarea>
+                    </div>
+                    <div class="pt-2 flex justify-end space-x-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-100 text-xs font-bold rounded-xl">キャンセル</button>
+                        <button type="submit" class="px-5 py-2 bg-brand-900 text-white text-xs font-bold rounded-xl">登録する</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+
+        function handleCreateProgress(e) {
+            e.preventDefault();
+            const title = document.getElementById('progTitle').value;
+            const summary = document.getElementById('progSummary').value;
+
+            state.progress.unshift({
+                id: Date.now(),
+                title: title,
+                date: new Date().toISOString().split('T')[0],
+                status: "受付",
+                summary: summary,
+                history: [`${new Date().getMonth()+1}/${new Date().getDate()} 新規登録されました`],
+                reason: ""
+            });
+
+            closeModal();
+            addLog(`新規改善案件「${title}」が登録されました。`);
+            renderAdminTable();
+            showToast('案件を登録しました');
+        }
+
+        function openNewNewsModal() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <h2 class="text-xl font-bold text-brand-900 mb-4">ニュース記事の投稿</h2>
+                <form onsubmit="handleCreateNews(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">記事タイトル *</label>
+                        <input type="text" id="newsTitleInput" required class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">カテゴリ *</label>
+                        <select id="newsCatInput" class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm">
+                            <option value="お知らせ">お知らせ</option>
+                            <option value="重要">重要</option>
+                            <option value="活動報告">活動報告</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-appleGray-subtext mb-1">本文 *</label>
+                        <textarea id="newsContentInput" rows="5" required class="w-full bg-appleGray-bg border border-appleGray-border rounded-xl p-3 text-sm"></textarea>
+                    </div>
+                    <div class="pt-2 flex justify-end space-x-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-100 text-xs font-bold rounded-xl">キャンセル</button>
+                        <button type="submit" class="px-5 py-2 bg-brand-900 text-white text-xs font-bold rounded-xl">投稿公開</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+
+        function handleCreateNews(e) {
+            e.preventDefault();
+            const title = document.getElementById('newsTitleInput').value;
+            const category = document.getElementById('newsCatInput').value;
+            const content = document.getElementById('newsContentInput').value;
+
+            state.news.unshift({
+                id: Date.now(),
+                title: title,
+                date: new Date().toISOString().split('T')[0],
+                category: category,
+                isPinned: category === '重要',
+                content: content
+            });
+
+            closeModal();
+            addLog(`公式ニュース「${title}」が新規公開されました。`);
+            renderAdminTable();
+            showToast('ニュースを投稿しました');
+        }
+
+        function renderAdminLogs() {
+            const container = document.getElementById('adminLogsContainer');
+            if (!container) return;
+            container.innerHTML = state.logs.map(log => `
+                <div>
+                    <span class="text-gray-500">[${log.time}]</span>
+                    <span class="text-yellow-300 font-bold"> [${log.actor}]</span>: 
+                    <span class="text-slate-200">${log.action}</span>
+                </div>
+            `).join('');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+        }
+
+        function renderAll() {
+            renderHome();
+            renderNews();
+            renderEvents();
+            renderProgress();
+            renderPetitions();
+            renderRules();
+            renderAdminTable();
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            renderAll();
+        };
+    </script>
+</body>
+</html>
